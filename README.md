@@ -2,4 +2,4 @@ Aquest repositori conté, ordenats, els fitxers resultants de la realització de
 
 La PAC1 consisteix en l'anàlisi bioinformàtic d'un experiment amb microarrays. En la carpeta Dades hi ha la còpia de les dades inicials de l'experiment, i a la carpeta Resultats els fitxers amb els resultats del processament bioinformàtic. 
 
-El fitxer PAC1.pdf és un PDF creat a partir d'un fitxer Rmarkdown que conté tot l'algoritme bioinformàtic realitzat.
+El fitxer PadrosaPulidoJoan.pdf és un PDF creat a partir d'un fitxer Rmarkdown que conté l'informe amb tot l'algoritme bioinformàtic utilitzat per a realitzar l'anàlisi.
