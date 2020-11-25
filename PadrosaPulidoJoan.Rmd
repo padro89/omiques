@@ -1,114 +1,125 @@
 ---
-title: "PAC 1"
+title: "Prova d'Avaluació Continuada 1"
 author: "Joan Padrosa Pulido"
-date: "20/11/2020"
+header-includes:
+  - \usepackage{graphicx}
 output: 
   pdf_document:
     toc: true
     toc_depth: 3
     number_sections: true
-    keep_tex: true
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 \newpage
 # Abstract
 
+El present treball té com a objectiu determinar l'expressió diferencial de gens en cultius de càncer de pròstata en funció de si s'han incubat amb àcid araquidònic o no. Per tal de dur a terme l'anàlisi, despres de l'exposició, es va obtenir l'ARN total i es va analitzar l'expressió gènica mitjançant *microarrays*, 4 rèpliques per nivell del tractament. En el preprocessament de l'anàlisi s'han objectivat problemes importants, sobretot una sospita elevada de fonts de variabilitat importants alternatives al tractament a estudi, probablement en relació a *batch effect*, el que posa en dubte qualsevol condició extreta de l'estudi. Les mostres s'han comparat mitjançant un anàlisi basat en models lineals, i s'han analitzat els processos implicats en funció dels termes GO relacionats.
+
 # Objectius
 
-Analitzar...
+L'objectiu del treball és realitzar un anàlisi de *microarrays* per determinar si l'addició d'àcid araquidònic, un àcid gras $\omega$-$6$, indueix expressió diferencial de gens en cultius cel·lulars de càncer de pròstata (PC-3). 
 
+\newpage
 # Materials i mètodes
 
-Es tracta d'un experiment...
+S'han obtingut els fitxers .CEL continents dels valors d'expressió crus de l'anàlisi de *microarrays* titulat *Arachidonic acid effect on prostate cancer cells*, publicat per Hughes-Fulford *et al*. al 2006^[Hughes-Fulford M, Li CF, Boonyaratanakornkit J, Sayyah S. Arachidonic acid activates phosphatidylinositol 3-kinase signaling and induces gene expression in prostate cancer. Cancer Res 2006 Feb 1;66(3):1427-33. PMID: 16452198], descarregats des de la base de dades de *Gene Expression Omnibus* (GEO)^[https://www.ncbi.nlm.nih.gov/sites/GDSbrowser], mitjançant l'identificador GDS1736. 
 
-Per tal de dur a terme l'anàlisi, primer s'ha identificat cada mostra i s'ha assignat a un dels grups d'estudi. Inicialment es realitzarà un estudi...
+En l'estudi, s'incubaren cèl·lules de càncer de pròstata PC-3 amb àcid araquidònic a $5\ \mu g/mL$ en un medi RPMI amb $0.25\ mg/mL$ d'albúmina durant dues hores, mentre que el grup control s'incubà només amb albúmina. Es realitzaren 4 rèpliques per cada nivell, de les quals s'obtingué l'ARN total i l'expressió gènica relativa es va analitzar mitjançant *arrays* d'Affymetrix.
 
+L'anàlisi s'ha dut a terme mitjançant el programari R 4.0.3^[R Core Team (2020). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.] i les eines de l'entorn `Bioconductor`^[Orchestrating high-throughput genomic analysis with Bioconductor. W. Huber, V.J. Carey, R. Gentleman, ..., M. Morgan Nature Methods, 2015:12, 115.] .
+
+Les dades crues, després d'un anàlisi de qualitat, han estat normalitzades mitjançant el mètode RNA, que consisteix en tres passes:
+
+* Correcció del fons.
+* Normalització.
+* Resum de valors del grup en un únic valor d'expressió absoluta.
+
+Les dades obtingudes mitjançant aquest procés han estat les utilitzades per a realitzar tot l'anàlisi. S'ha realitzat un filtratge no específic per eliminar els gens de baixa variabilitat, seleccionant aquells gens amb variabilitat (per rang interquartílic) superior al percentil 75 de la mostra o sense entrada a Entrez.
+
+Posteriorment, mitjançant el mètode desenvolupat per Smyth *et al*.^[Gordon K Smyth. Linear models and empirical bayes methods for assessing
+differential expression in microarray experiments. Stat Appl Genet Mol Biol, 3:Article3, 2004.], s'han seleccionat els gens diferencialment expressats, utilitzant el mètode de Benjamini i Hochberg per a ajustar la significació estadística per les comparacions múltilpes^[Y. Benjamini and Y. Hochberg. Controlling the false discovery rate: A practical and powerful approach to multiple testing. Journal of the Royal
+Statistical Society B, 57:289–300, 1995.]. La distribució d'aquests gens s'ha visualitzat mitjançant un *volcano plot*. Els gens diferencialment expressats s'han agrupat per a buscar patrons comuns d'expressió per a cada un dels grups, utilitzant mapes de colors.
+
+Per a l'anotació de gens s'han utilitzat bases de dades com Entrez, i posteriorment s'ha realitzat un anàlisi d'enriquiment per a identificar els processos afectats amb més freqüència.
+
+\newpage
 # Resultats
 
-Després de realitzar l'anàlisi, s'han 
+A continuació es mostra, pas per pas, l'anàlisi realitzat i els resultats obtinguts.
 
 ## Identificació de mostres i classificació en grups
 
-Fixem el directori on treballarem. El directori conté una carpeta, *data*, amb els fitxers .CEL, i una carpeta *results*, buida.
+Per a començar l'anàlisi, definim el directori de treball. Aquest directori conté una carpeta, `Dades`, amb el fitxer .tar que conté els fitxers .CEL descarregat prèviament, i una carpeta `Resultats`, buida. També conté aquest fitxer en format .pdf i en format .Rmd, així com l'enunciat de la prova d'avaluació continuada.
 
 ```{r}
 setwd("~/OneDrive/UOC/Assignatures/Anàlisi de dades òmiques/PAC1/omiques/")
 ```
 
-Ara carreguem el fitxer *targets*, que conté, per a cada fitxer .CEL, el grup i les condicions experimentals:
-
-```{r}
-library(readr)
-targets<-read_csv2("./data/targets.csv")
-head(targets,8)
+Descomprimim el fitxer .tar, eliminem tots els fitxers que no siguin .CEL i mostrem els fitxers resultants:
+```{bash}
+tar -xf ./Dades/GSE3737_RAW.tar -C Dades
+rm ./Dades/*EXP.gz
+gzip -df ./Dades/*.gz
+ls ./Dades | grep .CEL
 ```
 
-A continuació, importem els fitxers .CEL, creant primer un objecte tipus ExpressionSet per a contenir les dades.
-
+Generem el fitxer `targets`, per a definir, per a cada fitxer .CEL, el grup al què pertany:
 ```{r}
-library(oligo)
-#Creem un vector amb els noms dels fitxers.
-celFiles<-list.celfiles("./data",full.names=T)
+files<-paste("GSM860",79:86,sep="")
+group<-c(rep("Control",4),rep("Tractament",4))
+name<-c(paste("CTRL",1:4,sep=""),paste("AA",1:4,sep=""))
+treatment<-c(rep("Cap",4),rep("Àcid Araquidònic",4))
+targets<-data.frame(Fitxer=files,Grup=group,
+                    Tractament=treatment,
+                    Nom=name)
+readr::write_csv(targets,file="./Dades/targets.csv")
+knitr::kable(targets,
+             caption="Fitxer targets")
+```
+
+A continuació, importem els fitxers .CEL, creant un objecte tipus `ExpressionSet` per a contenir les dades.
+```{r warning=FALSE, message=FALSE}
 library(Biobase)
-#Creem un objecte (ExpressionSet) per contenir les dades fenotípiques a partir del fitxer "targets"
-my.targets<-read.AnnotatedDataFrame(file.path("./data","targets.csv"),
+library(oligo)
+# Importem les ubicacions dels fitxers:
+celFiles<-list.celfiles("./Dades",full.names=T)
+#Creem un ExpressionSet a partir del fitxer "targets"
+my.targets<-read.AnnotatedDataFrame("./Dades/targets.csv",
                                     header=T, row.names=1,
-                                    sep=";")
+                                    sep=",")
 rawData<-read.celfiles(celFiles,phenoData = my.targets)
-```
-
-Ara podem canviar els noms de les dades fenotípiques i de les columnes de la matriu (cada columan un xip) pel nom curt:
-```{r}
-rownames(pData(rawData))<-my.targets@data$ShortName
+#Canviem els noms per simplicitat posterior:
+rownames(pData(rawData))<-targets$Nom
 colnames(rawData)<-rownames(pData(rawData))
-head(rawData)
 ```
 
-A continuació anem a fer el control de qualitat de les dades crues:
-```{r}
-library(arrayQualityMetrics)
-arrayQualityMetrics(rawData,outdir = "./results/Quality-raw",force=T)
-```
-
-
+\newpage
 ## Control de qualitat de les dades crues
 
-## Normalització de les dades
+Per al control de qualitat de les dades crues utilitzem la funció `arrayQualityMetrics()` sobre les dades crues.
+```{r warning=FALSE, message=FALSE, eval=FALSE}
+library(arrayQualityMetrics)
+arrayQualityMetrics(rawData,
+                    outdir = "./Resultats/qualitat-crues",
+                    force=T)
+```
 
-## Control de qualitat de les dades normalitzades
+Els gràfics generats, així com l'informe, són emmagatzemats a la carpeta `Resultats/qualitat-dades-crues/`, disponible al repositori de `Github`.
 
-## Filtratge no específic [opcional]
+\begin{figure}
+\centering
+\includegraphics{../ControlQualitatCru.png}
+\caption{Resum de l'anàlisi de les dades crues}
+\end{figure}
 
-## Identificació de gens diferencialment expressats
+Podem veure, en el resum, com no hi ha problemes significatius en les dades abans de la normalització, tot i que en algun xip es detecten *outliers* per dos de tres mètodes (Figura 1).
 
-## Anotació dels resultats
-
-## Comparacions
-
-## Anàlisi de significació biològica
-
-# Discussió
-
-Els resultats mostren... Com a limitacions...
-
-# Conclusió
-
-No s'ha realitzat interpretació biològica dels resultats ja que l'objectiu era principalment l'anàlisi bioinformàtic. Totes les dades utilitzades inicialment, aquest informe i el fitxer Rmarkdown utilitzat per a generar-lo i les dades generades durant l'anàlisi bioinformàtic poden trobar-se, també, en [aquest repositori de *Github*](https://github.com/padro89/omiques). 
-
-
-
-Les dades queden guardades a la carpeta especificada. En aquesta carpeta podem veure el fitxer *index.html* que conté els resultats, amb un resum a l'inici en el què es marquen per quins mètodes s'han trobat outliers. Si es troben outliers per tres mètodes en algun dels xips es pot haver de descartar la mostra.
-
-![Resum dels resultats](./results/Quality-raw/Captura de pantalla de 2020-11-03 10-29-57.png)
-
-Podem veure com cap dels resultats presenta problemes greus.
-
-Podem fer l'anàlisi de components principals (els 2 primers) per a veure si els resultats s'agrupen per grup (seria esperable) o si no és així. Com que aquest anàlisi es repetirà, podem crear una funció que el faci directament.
-```{r}
+Podem fer l'anàlisi de components principals (els 2 primers) per a veure si els resultats s'agrupen per grup (seria esperable) o si no és així. Com que aquest anàlisi es repetirà, creem una funció que el faci directament, que anomenem `PCA()`.
+```{r echo=FALSE}
 library(ggplot2);library(ggrepel)
 PCA<-function(dades,etiquetes,grups,titol,escala=F,colors,mida=1.5,glinees=0.25){
   data<-prcomp(t(dades),scale=escala)
@@ -124,66 +135,127 @@ PCA<-function(dades,etiquetes,grups,titol,escala=F,colors,mida=1.5,glinees=0.25)
                  scale_fill_discrete(name="Group")
                p1+geom_text_repel(aes(y=PC2+0.25,label=etiquetes),segment.size=0.25,size=mida)+
                  labs(x=c(paste("PC1",loads[1],"%")),y=c(paste("PC2",loads[2],"%")))+
-                 ggtitle(paste("Anàlisi de components principals per: ",titol))+
                  theme(plot.title=element_text(hjust=0.5))+
                  scale_color_manual(values=colors)
 }
 ```
 
-Anem a aplicar la funció per a veure com queda l'anàlisi de les nostres dades abans de la normalització.
-```{r}
-PCA(exprs(rawData),etiquetes=targets$ShortName,grups=targets$Group,
-    titol="dades crues",mida=3,colors=c("red","blue","green","yellow"))
+\newpage
+Aplicant la funció es pot fer, visualment, un anàlisi de components principals (Figura 2).
+```{r message=FALSE, fig.cap="Anàlisi de components principals per les dades crues",fig.align='center', echo=FALSE}
+PCA(exprs(rawData),
+    etiquetes=targets$Nom,
+    grups=targets$Grup,
+    titol="Dades crues",
+    mida=3,colors=c("blue","red"))
 ```
 
-Aparentment, malgrat que una de les mostres dels grups s'allunya de la resta, però sembla que s'agrupen de manera natural. La major part de la variabilitat s'explica pel primer component principal (55.9%), i la distnció principal en aquest grup és la temperatura (a l'esquerre normal, a la dreta fred). El segon component principal, que explica menys variabilitat (13.6%), es divideix an WT i KO, almenys a temperatures fredes.
+Es pot intuir que hi ha una agrupació natural en l'eix vertical en funció del tractament amb àcid araquidònic, però el segon component principal només justifica el 12.7% de la variabilitat. La major part de la variabilitat, explicada pel primer component principal, depèn d'algun factor diferent, ja que no s'observa una agrupació per grup en l'eix horitzontal. 
 
-Anem a fer boxplots de cada array:
-```{r}
-colors<-c(rep("yellow",3),rep("blue",3),rep("green",3),rep("red",3))
+Representem cada *array* mitjançant *boxplot* (Figura 3). Observem variabiltiat entre mostres, esperable en les dades crues. 
+```{r message=FALSE, fig.cap="Boxplot d'expressió de cada mostra",fig.align='center', echo=FALSE}
+colors<-c(rep("blue",4),rep("red",4))
 boxplot(rawData,which="all",las=2,cex.axis=0.75,
         col=colors)
 ```
 
-Hi ha una mica de variabilitat entre grups, cosa esperable en les dades crues. Anema  normalitzar les dades:
+\newpage
+## Normalització de les dades
+
+Un cop acceptada la qualitat de les dades, procedim a la seva normalització mitjançant la funció `rma()`. 
 ```{r}
 normalitzades<-rma(rawData)
 ```
 
-Ara tornem a fer el control de qualitat de les dades normalitzades.
-```{r}
-arrayQualityMetrics(normalitzades,outdir="./results/Qualitat-normalitzades",force=T)
+## Control de qualitat de les dades normalitzades
+
+Tornem a fer el control de qualitat de les dades normalitzades.
+```{r warning=FALSE, message=FALSE, eval=FALSE}
+arrayQualityMetrics(normalitzades,
+                    outdir="./Resultats/qualitat-normalitzades",
+                    force=T)
 ```
 
-Podem veure que ara es detecten *outlyers* més fàcilment a la mostra KO.COLD1, però podem seguir.
+\begin{figure}
+\centering
+\includegraphics{../ControlQualitatNorm.png}
+\caption{Resum de l'anàlisi de les dades normalitzades}
+\end{figure}
+\newpage
 
-![Qualitat de les dades normalitzades](./results/Qualitat-normalitzades/Captura de pantalla de 2020-11-03 11-47-45.png)
-```{r}
-PCA(exprs(normalitzades),etiquetes=targets$ShortName,grups=targets$Group,titol="dades normalitzades",
-    colors=c("red","blue","green","yellow"),mida=3)
-boxplot(normalitzades,which="all",las=2,cex.axis=0.75,
+En l'anàlisi de les dades normalitzades no s'observen problemes de qualitat de les mostres (Figura 4). Repetim l'anàlisi de components principals (Figura 5).
+```{r message=FALSE, fig.cap="Anàlisi de components principals per les dades normalitzades",fig.align='center', echo=FALSE}
+PCA(exprs(normalitzades),
+    etiquetes=targets$Nom,
+    grups=targets$Grup,
+    titol="Dades normalitzades",
+    colors=c("blue","red"),
+    mida=3)
+```
+
+```{r fig.cap="Boxplot de les dades normalitzades",fig.align='center', echo=FALSE}
+boxplot(normalitzades,las=2,cex.axis=0.75,
         col=colors)
 ```
 
-El primer component ara explica només el 33% de la variabilitat, i es segueixen dividint les mostres en funció de la temperatura, tot i que hi ha alguna superposició entre KO i WT en l'eix vertical. Això podria ser un error en l'etiquetat de les mostres (o no). Quant als boxplots, despreś de la normalització mitjançant RMA, que utilitza normalització de quantils, són idèntics, com és esperable.
+Un cop normalitzades les dades, el segon component explica una part discretament de la variabiltiat, i l'agrupació en l'eix vertical és més evident, però es segueix observant una absència d'agrupació en l'eix horitzontal. Quant als *boxplots*, despreś de la normalització mitjançant `RMA`, que utilitza normalització de quantils, són idèntics, com és esperable.
 
-Anem a coprovar, ara (com ja s'intueix pel gràfic dels PCA), si la major part de la variabilitat prové d'alguna font experimental o si es pot explicar per algun altre factor (com el *Batch effect*) mitjançant el *Principal Variation Component Analysis* (PVCA). En aquest cas només possem les dades experimentals (si per exemple, s'haguessin processat les mostres en dates diferents, s'hauria de tenir en compte la data de processament).
-```{r}
+A continuació, comprovem, per a descartar algun efecte tipus *batch effect*, es poden analitzar les dates de processament de cada *array* mitjançant la funció `get.celfile.dates()`.
+
+```{r echo=FALSE}
 library(affyio)
 get.celfile.dates(celFiles)
 ```
 
-Veiem com totes les mostres s'han processat el mateix dia i no cal tenir-ho en compte.
-```{r}
-library(pvca)
-pct_treshold<-0.6
-batch.factors<-c("Genotype","Temperature")
-pvcaObj<-pvcaBatchAssess(normalitzades,batch.factors=batch.factors,
-                         threshold=pct_treshold)
+Les mostres han estat processades en dates diferents, pel que podem, fàcilment, tornar a realitzar l'anàlisi de components principals tenint en compte la data de processament com si fos un altre tractament. Primer de tot, creem un nou fitxer anomenat `targets1`, pque inclogui la data com a criteri de creació de grups.
+```{r echo=FALSE}
+#Creem un nou fitxer targets
+files<-paste("GSM860",79:86,sep="")
+group<-c("CTRL.2003","CTRL.2003-1","CTRL.2003","CTRL.2004",
+         "AA.2003","AA.2003","AA.2004","AA.2004")
+date<-c("2003","2003-1","2003","2004",
+        "2003","2003","2004","2004")
+treatment<-c(rep("Cap",4),rep("Àcid Araquidònic",4))
+name<-c(paste("CTRL",1:4,sep=""),paste("AA",1:4,sep=""))
+targets1<-data.frame(Fitxer=files,Grup=group,
+                     Tractament=treatment,
+                     Data=date,Nom=name)
+readr::write_csv(targets1,file="./Dades/targets1.csv")
+knitr::kable(targets1,
+             caption="Fitxer targets modificat amb la data de processament com a factor")
 ```
 
-Ara ho representem gràficament:
-```{r}
+Creem el nou `ExpressionSet`:
+```{r message=FALSE, warning=FALSE}
+#Creem un nou ExpressionSet:
+my.targets1<-read.AnnotatedDataFrame("./Dades/targets1.csv",
+                                    header=T, row.names=1,
+                                    sep=",")
+rawData_data<-read.celfiles(celFiles,phenoData = my.targets1)
+#Canviem els noms per simplicitat posterior:
+rownames(pData(rawData_data))<-targets1$Nom
+colnames(rawData_data)<-rownames(pData(rawData_data))
+#Normalitzem les dades:
+normalitzades_data<-rma(rawData_data)
+```
+
+Amb el nou fitxer, tornem a realitzar l'anàlisi de components principals (Figura 7).
+```{r message=FALSE, fig.cap="Anàlisi de components principals amb la data com a font de variabilitat",fig.align='center', echo=FALSE}
+PCA(exprs(normalitzades_data),
+    etiquetes=targets1$Nom,
+    grups=targets1$Grup,
+    titol="Dades normalitzades amb data",
+    colors=c("blue","red","green","yellow","black"),
+    mida=3)
+```
+
+Es pot observar com en l'eix horitzontal, a l'esquerra queden les mostres processades al juliol de 2003, al centre la mostra processada a l'agost del mateix any i a la dreta les mostres processades al setembre 2004, i que el primer component principal justifica, en aquest cas, el 68.9% de la variabilitat. Aquestes troballes suggereixen que la data podria jugar un paper rellevant en els resultats. Utilitzem un anàlisi tipus *Principal Variation Component Analysis* (PVCA) per a comprovar d'on prové la variabilitat, utilitzant la data com un factor (Figura 8).
+```{r message=FALSE, warning=FALSE, fig.cap="Anàlisi PVCA",fig.align='center', echo=FALSE}
+library(pvca)
+pct_treshold<-0.6
+batch.factors<-c("Tractament","Data")
+pvcaObj<-pvcaBatchAssess(normalitzades_data,batch.factors=batch.factors,
+                         threshold=pct_treshold)
 bp<-barplot(pvcaObj$dat,xlab="Efectes",
         ylab="Proporció de la variança explicada ajustada",
         main="Estimació PVCA",
@@ -194,25 +266,26 @@ new_values<-round(values,3)
 text(bp,pvcaObj$dat,labels=new_values,pos=3,cex=0.7)
 ```
 
-Podem veure que la major part de la variabilitat es veu explicada per la temperatura, i un 15% pel genotipus. 
+Tal com es preveia, la major part de la variabilitat (>80%) ve explicada per la data en què s'ha cursat la mostra. Tot això és suggestiu d'un efecte tipus *batch effect* molt marcat, i podria invalidar els resultats.
 
-## Detectant els gens més variables.
+\newpage
+## Filtratge no específic
 
-Calculem les desviacions per files, és a dir, de cada transcrit entre grups. Després les ordenem i les dibueixem, marcant els percentils 90 i 95%.
-```{r}
+A continuació es busquen els gens amb més variabilitat, utilitzant les desviacions estàndar per files (cada columna representa una mostra, i cada fila un transcrit). Les representem gràficament, amb cada gen a l'eix d'ordenades i línies verticals marcant els percentils 90 i 95 (Figura 9).
+```{r message=FALSE, fig.cap="Variabilitat dels gens",fig.align='center', echo=FALSE}
 sds<-apply(exprs(normalitzades),1,sd)
 desviacions<-sort(sds)
 plot(1:length(desviacions),desviacions,main="Distribució de la variabilitat dels gens",
-     sub="Les línies verticals representen els percentils 90% i 95%",
+     sub="Les línies verticals representen els percentils 90 i 95",
      xlab="Índex dels gens (de menys a més variable)",ylab="Desviació estàndar")
 abline(v=length(desviacions)*c(0.9,0.95))
 ```
 
-Veiem les desviacions estàndar. Ara anem a seleccionar els gens amb més desviació estàndar per a poder veure en quins hi ha diferències. Podem utilitzar un paquet específic, *genefilter*. A part, podem traure aquells transcrits que no tinguin un identificador de gen associat.
-```{r}
-library(genefilter);library(mogene21sttranscriptcluster.db)
+Eliminem els gens amb menys variabilitat per tal de disminuir el nombre de comparacions posteriors. S'utilitza un paquet específic, `genefilter`. A part, podem traure aquells transcrits que no tinguin un identificador de gen associat.
+```{r message=FALSE, warning=FALSE}
+library(genefilter);library(hgu133a.db)
 #Marquem les anotacions:
-annotation(normalitzades)<-"mogene21sttranscriptcluster.db"
+annotation(normalitzades)<-"hgu133a.db"
 #Filtrem per variança i ID a Entrez.
 filtrades<-nsFilter(normalitzades,
                     require.entrez=T,remove.dupEntrez=T,
@@ -221,157 +294,138 @@ filtrades<-nsFilter(normalitzades,
 print(filtrades$filter.log)
 #Guardem l'expressionSet
 gens_filtrats<-filtrades$eset
-gens_filtrats
-```
-Veiem que ha retirat 671 gens duplicats, 17973 gens amb variança baixa i 16710 sense entrades a *Entrez*. En total ens queden 5991 gens de 12 mostres.
-
-## Guardant les dades:
-```{r}
-write.csv(exprs(normalitzades),file="./results/dades_normalitzades.csv")
-write.csv(exprs(gens_filtrats),file="./results/dades_normalitzades_filtrades.csv")
-save(normalitzades, gens_filtrats, file="./results/normalized.Data.Rda")
 ```
 
-## Definint la matriu de disseny:
+Es pot veure com hem retirat `r filtrades$filter.log[[1]]` transcrits duplicats, `r filtrades$filter.log[[2]]` transcrits amb variança baixa, `r filtrades$filter.log[[3]]` transcrits sense entrada a *Entrez* i `r filtrades$filter.log[[4]]` registres que corresponen a detalls tècnics del *microarray*. Queden un total de `r nrow(gens_filtrats@assayData$exprs)` transcrits per analitzar a la mostra.
 
-Per fer l'anàlisi mitjançant models lineals, cal una matriu de disseny. Per crear la matriu de disseny, que té tantes files com mostres i columnes com grups, on cada fila conté un 1 en la columna del grup a la qual pertany i un 0 en la resta, ho podem fer fàcilment amb una variable factor del fitxer *targets*. En aquest cas, la variable "*Group*" és la que conté les dues condicions experimentals. 
+A continuació guardem les dades a la carpeta `Resultats`, tant en forma de fitxer .csv com de fitxer .R per a consultar amb facilitat.
 ```{r}
-#Carreguem les dades si no ho estessin.
-if(!exists("gens_filtrats")){load(file="./resultss/normalized.Data.Rda")}
-
-#Definim una matriu sense intercept.
-designMat<-model.matrix(~0+Group,pData(gens_filtrats))
-colnames(designMat)<-c("KO.COLD","KO.RT","WT.COLD","WT.RT")
-designMat
+write.csv(exprs(normalitzades),file="./Resultats/dades_normalitzades.csv")
+write.csv(exprs(gens_filtrats),file="./Resultats/dades_normalitzades_filtrades.csv")
+save(normalitzades, gens_filtrats, file="./Resultats/normalized.data.Rda")
 ```
 
-## Definint la matriu de contrastos:
+\newpage
+## Identificació de gens diferencialment expressats
 
-La matriu de contrasts descriu les comparacions entre grups, amb grups, con cada fila és un grup i cada columna una comparació. Comparem entre KO i WT en funció de la temperatura i la interacció entre KO i la temperatura.
+Per tal d'analitzar l'expressió diferencial de gens, s'utilitzarà un mètode basat en models lineals, utilitzant les funcions del paquet `limma`, implementat a `Bioconductor`, carregat prèviament. 
+
+### Definició de la matriu de disseny:
+
+Per a utilitzar-lo, és necessari definir la matriu de disseny i la matriu de contrasts, encara que en el nostre anàlisi només realitzarem una comparació. La matriu de disseny té tantes files com mostres i columnes com grups. Cada fila conté un 1 en la columna del grup a la qual pertany i un 0 en la resta. Utilitzem la variable "Grup" del factor `targets` que separa en funció de condició experimental (tractament i control).
 ```{r}
+disseny<-model.matrix(~0+Grup,pData(gens_filtrats))
+colnames(disseny)<-c("CTRL","AA")
+disseny
+```
+
+### Definició de la matriu de contrasts:
+
+La matriu de contrasts descriu les comparacions entre grups, on cada fila és un grup i cada columna una comparació. En aquest cas només fem una comparació, i no hi ha grup interacció.
+```{r warnings=FALSE, message=FALSE}
 library(limma)
-contrastMat<-makeContrasts(KOvsWT.COLD=KO.COLD-WT.COLD,
-                           KOvsWT.RT=KO.RT-WT.RT,
-                           INT=(KO.COLD-WT.COLD)-(KO.RT-WT.RT),
-                           levels=designMat)
-contrastMat
+contrasts<-makeContrasts(AAvsCTRL = AA-CTRL,
+                        levels=disseny)
+contrasts
 ```
 
-## Estimació del model i selecció de gens:
+### Estimació del model i selecció de gens:
 
-Amb les matrius i les dades, estimem el model mitjançant el paquet *limma*. Ajustem el p-valor mitjançant el mètode de Benjamini i Hochberg.
+Amb les matrius i les dades, estimem el model mitjançant el paquet `limma`.
 ```{r}
-fit<-lmFit(gens_filtrats,designMat)
-fit.main<-contrasts.fit(fit,contrastMat)
+fit<-lmFit(gens_filtrats,disseny)
+fit.main<-contrasts.fit(fit,contrasts)
 fit.main<-eBayes(fit.main)
 ```
 
-## Obtenint llistes de gens diferencialment expressats:
-
-La funció *topTable()* de *limma* permet veure, ordenats de manera descendent en funció del p-valor, els gens diferencialment expressats en cada comparació.
+La funció `topTable()`de `limma` permet veure, ordenats de manera descendent en funció del p-valor, els gens diferencialment expressats en cada comparació. Ajustem el p-valor mitjançant el mètode de Benjamini i Hochberg mitjançant l'argument `adjust`.
 ```{r}
-#KOvsWT.COLD
-topTab_KOvsWT.COLD<-topTable(fit.main,number=nrow(fit.main),coef="KOvsWT.COLD",
-                             adjust="fdr")
-head(topTab_KOvsWT.COLD)
-#KOvsWT.RT
-topTab_KOvsWT.RT<-topTable(fit.main,number=nrow(fit.main),coef="KOvsWT.RT",
-                           adjust="fdr")
-head(topTab_KOvsWT.RT)
-#Interacció
-topTab_INT<-topTable(fit.main,number=nrow(fit.main),coef="INT",
-                     adjust="fdr")
-head(topTab_INT)
+taula<-topTable(fit.main,number=nrow(fit.main),
+                coef="AAvsCTRL",adjust="fdr")
+knitr::kable(head(taula),
+             caption="Expressió diferencial de gens")
 ```
 
-## Anotació
-
-Un cop tenim els gens diferencialment expressats, podem anotar-los mitjançant la primera columna de les taules (corresponent a la ID d'Affymetrix). Podem fer una funció que ens anoti cada taula. En aquest cas utilitzem les dades del xip *mogene21* per a anotar en funció del PROBEID. Canviarem les dades del xip en funció de l'utilitzat (aquest és de ratolins).
-```{r}
-anotarTaula<-function(topTab,paquetAnotacions){
-  #Afegim la columna amb la PROBEID
-  topTab<-cbind(PROBEID=rownames(topTab),topTab)
-  myProbes<-rownames(topTab)
-  #Guardem les dades del paquet d'anotacions
-  thePackage<-eval(parse(text=paquetAnotacions))
-  geneAnots<-select(thePackage,myProbes,c("SYMBOL","ENTREZID","GENENAME"))
-  annotatedTopTab<-merge(x=geneAnots,y=topTab,by.x="PROBEID",by.y="PROBEID")
-  return(annotatedTopTab)
-}
+A continuació es dibuixa un *volcano plot* per tal a representar, de manera gràfica, la quantitat de gens diferencialment expressats i la magnitud de la diferència (Figura 10).
+```{r message=FALSE, fig.cap="Volcano plot de les dades",fig.align='center', echo=FALSE}
+volcano<-ggplot(taula,
+       aes(x=logFC,
+           y=-log10(P.Value)))
+volcano<-volcano+geom_point()+
+  geom_hline(yintercept=-log10(0.05),,linetype="dashed",
+             color="red")+
+  geom_vline(xintercept=c(-1,1))+
+  theme_bw()+xlim(-6,6)+
+  xlab("Diferència de les mitjanes")
+volcano+geom_text(aes(
+  label=ifelse(-log10(P.Value)>5,
+               as.character(rownames(taula)),
+               "")))
 ```
 
-Ara apliquem la funció a cada taula i guardem els resultats.
+La línia horitzontal representa la significació estadística considerada com a p<0.05. Sorprenentment, s'observa que el gràfic és molt asimètric, el que no té massa sentit a nivell biològic, ja que implicaria que un dels grups té molts gens activats en relació a l'altre, sense tenir quasi gens menys expressats. Es pot veure, a més, com no hi ha una quantitat de gens massa gran expressats diferencialment. Per a una p no ajustada menor a 0.25 hi ha 231 gens diferencialment expressats, i si es selecciona una p menor de 0.1 només hi ha 68 gens.
+
+De cara a il·lustrar l'anàlisi d'enriquiment, es seleccionen el màxim de gens possibles per al treball, utilitzant una p menor de 0.25, sense límit de significació biològica i sense mètode d'ajustament del p-valor.
 ```{r}
-KOvsWT.COLD<-anotarTaula(topTab_KOvsWT.COLD,"mogene21sttranscriptcluster.db")
-KOvsWT.RT<-anotarTaula(topTab_KOvsWT.RT,"mogene21sttranscriptcluster.db")
-interaccio<-anotarTaula(topTab_INT,"mogene21sttranscriptcluster.db")
-
-# Guardem els fitxers:
-write.csv(KOvsWT.COLD,file="./results/topAnnotated_KOvsWT_COLD.csv")
-write.csv(KOvsWT.RT,file="./results/topAnnotated_KOvsWT_RT.csv")
-write.csv(interaccio,file="./results/topAnnotated_INT.csv")
-```
-
-## Visualitzant l'expressió diferencial:
-
-El *volcano plot* ens permet veure si hi ha molts o pocs gens que s'expressin d'una manera molt marcada.
-```{r}
-# Guardem els noms dels gens a SYMBOLS:
-geneSymbols<-select(mogene21sttranscriptcluster.db,rownames(fit.main),c("SYMBOL"))
-SYMBOLS<-geneSymbols$SYMBOL
-#WTvsKO_COLD
-volcanoplot(fit.main,coef=1,highlight=4,names=SYMBOLS,
-            main=paste("Gens expressats diferencialment",
-                       colnames(contrastMat)[1], sep="\n"))
-abline(v=c(-1,1))
-#WTvsKO_RT
-volcanoplot(fit.main,coef=2,highlight=4,names=SYMBOLS,
-            main=paste("Gens expressats diferencialment",
-                       colnames(contrastMat)[2], sep="\n"))
-abline(v=c(-1,1))
-#Interaccio
-volcanoplot(fit.main,coef=3,highlight=4,names=SYMBOLS,
-            main=paste("Gens expressats diferencialment",
-                       colnames(contrastMat)[3], sep="\n"))
-abline(v=c(-1,1))
-```
-
-## Gens en cada comparació
-
-Pot ser que els gens rellevatnts siguin aquells seleccionats en una coparació i no en altres, o només aquells seleccionats en totes les comparacions, etc. Podem utilitzar funcions de *limma* per tal d'anotar i contar els gens seleccionats a cada comparació. La funció *decideTests()* ens torna una matriu on cada fila és un gen i cada columna un contrast, amb 1, -1 o 0 en funció de si el gen és diferencialment expressat.
-
-Podem seleccionar només aquells significatius i veure'n el resum. Podem fer un diagrama de Venn amb les dades.
-```{r}
-res<-decideTests(fit.main,method="separate",
-                 adjust.method="fdr",p.value=0.1,lfc=1)
+res<-decideTests(fit.main,adjust.method="none",
+                 p.value=0.25)
 sum.res.rows<-apply(abs(res),1,sum)
 res.selected<-res[sum.res.rows!=0,]
 summary(res.selected)
-vennDiagram(res.selected[,1:3],cex=0.9)
-title("Gens en comú entre els tres grups\n Gens seleccionats amb FDR <0.1 i logFC >1")
+```
+Com s'intuïa, hi ha 231 gens expressats diferencialment entre els dos grups utilitzant aquest criteri tan poc restrictiu, quasi tots ells més expressats en un dels grups.
+
+\newpage
+## Anotació dels resultats
+
+A continuació afegim una columna a la taula generada que contingui el nom de l'identificador d'Affymetrix, que actualment correspon al nom de la fila, i la utilitzem per anotar la taula, de la qual seleccionem només els gens que considerem expressats diferencialment. S'utilitzen les dades del xip `hgu133a` (*Affymetrix Human Genome U133A Array*).
+```{r warning=FALSE, message=FALSE}
+#Afegim la columna amb la PROBEID
+taula_id<-cbind(PROBEID=rownames(taula),taula)
+transcrits<-rownames(taula_id)
+#Guardem les dades del paquet d'anotacions
+paquet<-eval(parse(text="hgu133a.db"))
+anotacions<-select(paquet,transcrits,c("SYMBOL",
+                                       "ENTREZID",
+                                       "GENENAME"))
+taulaAnotada<-merge(x=anotacions,
+                    y=taula_id,
+                    by.x="PROBEID",
+                    by.y="PROBEID")
+seleccioAnotada<-taulaAnotada[taulaAnotada$PROBEID %in% rownames(res.selected),]
+knitr::kable(head(seleccioAnotada[c(2,4,8)],10),
+             caption="Gens seleccionats amb anotacions")
 ```
 
-## Perfils d'expressió.
-
-En el nostre exemple, mostrarem aquells gens que s'expressen diferencialment segons el nostre criteri previ.
+Es mostra la taula anotada. De nou, es guarden els resultats en un fitxer .csv.
 ```{r}
+write.csv(taulaAnotada,file="./Resultats/taulaAnotada.csv")
+write.csv(seleccioAnotada,file="./Resultats/seleccioAnotadaCTRLvsAA.csv")
+```
 
+\newpage
+## Anàlisi de significació biològica
+
+A continuació es realitza l'anàlisi de signifiació biològica per a veure els processos implicats. Es seleccionen els gens que s'han considerat diferencialment amb un criteri poc estricte de cara a augmentar la mida de la mostra.
+```{r message=FALSE, warning=FALSE}
 probesInHeatMap<-rownames(res.selected)
 HMdata<-exprs(gens_filtrats)[rownames(exprs(gens_filtrats)) %in% probesInHeatMap,]
-geneSymbols<-select(mogene21sttranscriptcluster.db,rownames(HMdata),c("SYMBOL"))
+geneSymbols<-select(hgu133a.db,rownames(HMdata),c("SYMBOL"))
 SYMBOLS<-geneSymbols$SYMBOL
 rownames(HMdata)<-SYMBOLS
-head(HMdata)
-write.csv(HMdata,file="./results/data4Heatmap.csv")
+knitr::kable(head(HMdata),
+             caption="Expressió per mostra i gen",
+             digits=3)
+write.csv(HMdata,file="./Resultats/data4Heatmap.csv")
 ```
 
-Hem creat, doncs, una taula on cada fila és un gen diferencialment expressat i cada columna els seus valors d'expressió en cada mostra. Ara podem fer el *heatmap*.
-```{r}
-paleta<-colorRampPalette(c("blue","red"))(n=299)
+Com es pot veure, s'ha creat una taula on cada fila és un gen diferencialment expressat i cada columna els seus valors d'expressió en cada mostra. Ara es realitza el mapa de color (Figura 11).
+```{r message=FALSE, warning=FALSE, fig.cap="Mapa de color amb expressió diferencial entre mostres",fig.align='center', echo=FALSE}
 library(gplots)
+paleta<-colorRampPalette(c("blue","red"))(n=299)
 heatmap.2(HMdata,
           main="Gens expressats diferencialment\n
-          FDR<0.1 i logFC>=1",
+          p<0.25",
           dendrogram="both",
           scale="row",col=paleta,
           sepcolor="white",sepwidth=c(0.05,0.05),
@@ -380,33 +434,48 @@ heatmap.2(HMdata,
           density.info="histogram",ColSideColors=colors,
           tracecol=NULL,srtCol=30)
 ```
+Es pot observar un perfil d'expressió diferenciat entre els controls i el grup tractat, tot i que també hi ha diferències aparents dins els grups.
 
-## Significació biològica dels resultats:
-
-Anem a utilitzar *ReactomePA* per a identificar les vies afectades pels gens expressats diferencialment. Primer de tot, creem una llista amb els gens expressats diferencialment. Utilitzarem un criteri més laxe, com p<0.1 per a tenir més gens i fer l'anàlisi millor.
-```{r}
-taules <- list(KOvsWT.COLD = topTab_KOvsWT.COLD, 
-                     KOvsWT.RT  = topTab_KOvsWT.RT, 
-                     INT = topTab_INT)
-listOfSelected <- list()
-for (i in 1:length(taules)){
-  topTab <- taules[[i]]
-  # select the genes to be included in the analysis
-  whichGenes<-topTab["adj.P.Val"]<0.1
-  selectedIDs <- rownames(topTab)[whichGenes]
-  # convert the ID to Entrez
-  EntrezIDs<- select(mogene21sttranscriptcluster.db, selectedIDs, c("ENTREZID"))
-  EntrezIDs <- EntrezIDs$ENTREZID
-  listOfSelected[[i]] <- EntrezIDs
-  names(listOfSelected)[i] <- names(taules)[i]
-}
-sapply(listOfSelected, length)
+Com a part de l'anàlisi de significació biològica, creem un informe HTML, consultable des de la carpeta `Resultats`, amb l'anàlisi associat a la base de dades GO.
+```{r warning=FALSE, message=FALSE}
+library(GOstats);library(annotate)
+# Seleccionem la llista de tots els gens de l'estudi.
+entrezUniverse<-unique(getEG(taulaAnotada$PROBEID, "hgu133a.db"))
+# Seleccionem els identificadors dels gens que hem escollit
+quinsGens<-taulaAnotada["P.Value"]<0.25
+genIDs<-unique(getEG(taulaAnotada$PROBEID[quinsGens],"hgu133a.db"))
+# Creem els paràmetres:
+GOparams<-new("GOHyperGParams",
+              geneIds=genIDs, universeGeneIds=entrezUniverse,
+              annotation="org.Hs.eg.db", ontology="BP",
+              pvalueCutoff=0.001,
+              conditional=FALSE,
+              testDirection="over")
+GOhyper<-hyperGTest(GOparams)
+# Creem un informe amb els resultats.
+htmlReport(GOhyper,file="./Resultats/Informe.html",summary.args=list("htmlLinks"=TRUE))
 ```
 
-Podem veure els gens que hi ha per a cada grup. Ara seleccionem els gens que tenen una entrada a GO.
-```{r}
-mapped_genes2GO <- mappedkeys(org.Mm.egGO)
-mapped_genes2KEGG <- mappedkeys(org.Mm.egPATH)
-mapped_genes <- union(mapped_genes2GO , mapped_genes2KEGG)
+\newpage
+# Discussió
+
+Malgrat que en l'anàlisi de qualitat inicial no sembla que s'haguessin detectat problemes importants amb les mostres, en analitzar les fonts de variabiltiat de les dades s'ha determinat que la principal font de variabilitat era la data de processament de la mostra. Aquesta troballa és altament suggestiva de l'existència d'un efecte mostra o *batch effect* molt marcat, que fa que les diferències que s'hagin pogut observar entre els grups puguin dependre meś de com s'ha processat la mostra que no de l'efecte del tractament que es volia estudiar. Per aquest motiu, qualsevol conclusió extreta d'aquest estudi s'hauria de tractar amb prudència, i fins i tot s'hauria de valorar repetir l'estudi intentant corregir aquest efecte per a poder arribar a cap conclusió.
+
+En el present treball s'ha dut a terme únicament una comparació, en la què possiblement per algun motiu relacionat amb el processament de la mostra, s'ha objectivat expressió diferencial de relativament pocs gens i sorprenentment quasi en un únic sentit, tal i com es pot observar a la taula:
+
+```{r echo=FALSE}
+knitr::kable(cbind(Expressió=c("Upregulated","Downregulated"),
+                   AAvsCTRL=c(218,13)),
+             caption="Nombre de gens expressats diferencialment")
 ```
+
+Els gens seleccionats s'han desat al fitxer `seleccioAnotada.csv`, disponible a la carpeta de resultats. En funció de les entrades a Gene Ontology, s'ha generat un document HTML, el fitxer `informe.html` que permet veure les funcions i processos afectats per l'expressió diferencial de gens i per tant, si l'estudi no tingués les limitacions explicades, l'efecte del tractament sobre les cèl·lules neolpàsiques.
+
+Cal tenir en compte que qualsevol dels gens seleccionats és un candidat possible, però la seva expressió s'hauria de verificar per tècniques d'amplificació, ja que l'anàlisi de *microarrays* només té com a objectiu descobrir possibles candidats.
+
+# Conclusió
+
+No s'ha realitzat interpretació biològica dels resultats ja que l'objectiu era principalment l'anàlisi bioinformàtic. Totes les dades utilitzades inicialment, aquest informe i el fitxer Rmarkdown utilitzat per a generar-lo i les dades generades durant l'anàlisi bioinformàtic poden trobar-se, també, en [aquest repositori de *Github*](https://github.com/padro89/omiques)^[https://github.com/padro89/omiques].
+
+
 
